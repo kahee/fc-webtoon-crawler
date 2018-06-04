@@ -12,9 +12,9 @@ class EpisodeImage:
 
 
 class Episode:
-    def __init__(self, webtoon_id, no, url_thumbnail,
+    def __init__(self, webtoon, no, url_thumbnail,
                  title, rating, created_date):
-        self.webtoon_id = webtoon_id
+        self.webtoon = webtoon
         self.no = no
         self.url_thumbnail = url_thumbnail
         self.title = title
@@ -25,13 +25,13 @@ class Episode:
     @property
     def url(self):
         """
-        self.webtoon_id, self.no 요소를 사용하여
+        self.webtoon, self.no 요소를 사용하여
         실제 에피소드 페이지 URL을 리턴
         :return:
         """
         url = 'http://comic.naver.com/webtoon/detail.nhn?'
         params = {
-            'titleId': self.webtoon_id,
+            'titleId': self.webtoon.webtoon_id,
             'no': self.no,
         }
 
@@ -40,7 +40,7 @@ class Episode:
 
     def get_image_url_list(self):
 
-        file_path = f'./data/{self.webtoon_id}-{self.no}.html'
+        file_path = f'./data/{self.webtoon.webtoon_id}-{self.no}.html'
 
         if not os.path.exists(file_path):
             with open(file_path, 'wt') as f:
@@ -71,7 +71,7 @@ class Episode:
         :return:
         """
         # 서버에서 거부하지 않도록 HTTP헤더 중 'Referer'항목을 채워서 요청
-        url_referer = f'http://comic.naver.com/webtoon/list.nhn?titleId={self.webtoon_id}'
+        url_referer = f'http://comic.naver.com/webtoon/list.nhn?titleId={self.webtoon}'
         headers = {
             'Referer': url_referer,
         }
@@ -80,12 +80,16 @@ class Episode:
         file_name = url_img.url.rsplit('/', 1)[-1]
 
         # 이미지가 저장될 폴더 경로, 폴더가 없으면 생성해준다
-        dir_path = f'data/{self.webtoon_id}/{self.no}'
+        dir_path = f'data/{self.webtoon.webtoon_id}/{self.no}'
         os.makedirs(dir_path, exist_ok=True)
 
         # 이미지가 저장될 파일 경로, 'wb'모드로 열어 이진데이터를 기록한다
         file_path = f'{dir_path}/{file_name}'
         open(file_path, 'wb').write(response.content)
+
+        # 저장된 이미지를 인터넷에서 볼 수 있도록 html 파일로 생성
+        with open('data/{}/{}.html'.format(self.webtoon.webtoon_id, self.no), 'a') as f:
+            f.write('<img src = {}/{}>'.format(self.no, file_name))
 
 
 class Webtoon:
@@ -154,10 +158,10 @@ class Webtoon:
         return '{title} \n' \
                '작가 : {author} \n' \
                '설명 : {description} \n' \
-               '총 연재횟수 : {episode_list} 회\n'.format(title=self.title,
-                                                    author=self.author,
-                                                    description=self.description,
-                                                    episode_list=len(self.episode_list))
+               '총 연재횟수 : {episode_list} 회'.format(title=self.title,
+                                                  author=self.author,
+                                                  description=self.description,
+                                                  episode_list=len(self.episode_list))
 
     @classmethod
     def all_webtoon_crawler(cls, keyword):
@@ -262,7 +266,7 @@ class Webtoon:
                 # 매 에피소드 정보를 Episode 인보스턴스로 생성
                 # new_episode = Episode 인스턴스
                 new_episode = Episode(
-                    webtoon_id=self.webtoon_id,
+                    webtoon=self,
                     no=no,
                     url_thumbnail=url_thumbnail,
                     title=title,
@@ -271,24 +275,9 @@ class Webtoon:
                 )
                 # episode_lists Episode 인스턴스들 추가
                 self._episode_list.append(new_episode)
-
+            # no가 1인경우 break
             if no == '1':
                 break
+            # 그 경우가 아니면 page를 1씩 추가하여 다음 페이지 웹툰 리스트 크롤링
             else:
                 self.page += 1
-
-
-if __name__ == '__main__':
-    webtoon1 = Webtoon(706770)
-    # print(webtoon1.title)
-    # print(webtoon1.author)
-    # print(webtoon1.description)
-    episode = webtoon1.episode_list[0]
-    # episode.get_image_url_list()
-    # episode.download()
-    # a = Webtoon.search_webtoon('대학')
-    # for webtoon in a:
-    #     print(webtoon.title)
-    # webtoon1 = a[0]
-    print(webtoon1.info)
-    print(webtoon1.episode_list)
